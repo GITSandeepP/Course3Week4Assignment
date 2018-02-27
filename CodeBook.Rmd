@@ -1,0 +1,86 @@
+---
+title: "CodeBook"
+---
+
+The purpose of the document is for describing run_analysis.R
+
+        • Code starts with importing the required libraries. In this case I only needed "dplyr"                library
+	• setwd method is used to set the path of the directory where observation files are copied on           the local machine
+	• Files used for preparing tidy data are as below,
+	        1. features.txt - it contains list of all features. Data in this file is used for                       naming the columns variables in observation files
+		2. X_test.txt - This file is located inside "test" folder and contains Test dataset.
+		3. y_test.txt - This file is also located inside "test" folder and Test labels or                       activities id for which these observations are recorded.
+		4. subject_test.txt - This file is located inside "test" folder, each row identifies                    the subject who performed the activity for each window sample. Its range is from 1                    to 30
+		5. X_train.txt - This file is same as X_test, accept that it is in "train" folder and                    it contains training dataset.
+		6. y_train.txt - This file is same as y_test, accept that it is in "train" folder and                    it contains training dataset related information
+		7. subject_train.txt - Again this file is same as subject_test, accept that it is in                   "train" folder and it contains training dataset related information
+	• X_test.txt, y_test.txt, subject_test.txt files are read and stored in x.test, y.test,                subject.test variables respectively
+	• X_train.txt, y_train.txt, subject_train.txt files are read and stored in x.train, y.train,           subject.train variables respectively
+	• features.txt file is read and stored in feature variable which is of the class dataframe.            This dataframe is then converted into a character vector and stored in feature.list                  variable.
+	• feature.list variable is used to define columns name in X.test and X.train dataframe
+	• x.test, y.test, subject.test variables are then used to form test.df dataframe using cbind           funtction and x.train, y.train, subject.train variables are used to form train.df dataframe           cbind funtction
+
+```{r test.df data frame}
+test.df <- cbind(y.test, subject.test, x.test)
+```
+```{r train.df data frame}
+train.df <- cbind(y.train, subject.train, x.train)
+```
+## Questions Solutions
+
+        • Solution 1 – merging of test and train dataset which in my case are test.df and train.df is           done using rbind function and stored in merge.df
+```{r}
+merge.df <- rbind(test.df, train.df) 
+print(str(merge.df))
+```
+
+	• Solution 2 - Extracts only the measurements on the mean and standard deviation for each              measurement mean.std is formed using merge.df. It contains all the observations for columns           containing mean/std. Please note that column name containing meanFreq is not included here.
+```{r}
+mead.std <- merge.df[grepl("mean[()]", names(merge.df)) | grepl("std[()]", names(merge.df))]
+print(str(mead.std))
+```
+
+	• Solution 3 – for this we read activity_labels.txt in main folder. There are 2 columns in             this dataset, activity_id and activity_name. Activity_id is used to join merge.df and                activity.label dataframe and it is stored in join.df variable.
+```{r}
+# merge.df and activity.label are joined based on activity_id
+# Please note that inner join is applied here hence all the non matching values 
+# i.e. NAs will not be included here
+join.df <- merge(activity.label, merge.df, by = "activity_id")
+# activity_id column is removed from join.df as we now have activity_name information
+join.df <- select(join.df, -activity_id)
+print(str(join.df))
+```
+	
+	• Solution 4 - Appropriately labels the data set with descriptive variable names. Parenthesis           are removed from the column name, abbreviated values are replaced with their full name
+```{r}
+# parenthesis are removed from the column name
+# abbreviated values are replaced with their full name
+names.df <- names(join.df)
+names.df <- gsub("[()]", "", names.df)
+names.df <- gsub("^t", "Time_", names.df)
+names.df <- gsub("^f", "Frequency_", names.df)
+names.df <- gsub("Acc", "_Accelerometer", names.df)
+names.df <- gsub("Gyro", "_Gyroscope", names.df)
+names.df <- gsub("Mag", "_Magnitude", names.df)
+names.df <- gsub("-MeanFreq-", "_MeanFrequency_", names.df)
+names.df <- gsub("-std-", "_StandardDeviation_", names.df)
+names.df <- gsub("-std", "_StandardDeviation", names.df)
+names.df <- gsub("-maxInds-", "_Max_Index_", names.df)
+names.df <- gsub("-maxInds", "_Max_Index", names.df)
+names.df <- gsub("-iqr-", "_Interquartile_Range_", names.df)
+names.df <- gsub("-iqr", "_Interquartile_Range", names.df)
+names.df <- gsub("-sma-", "_Signal_Magnitude_Area_", names.df)
+names.df <- gsub("-sma", "_Signal_Magnitude_Area", names.df)
+names.df <- gsub("-", "_", names.df)
+names(join.df) <- names.df
+print(names(join.df))
+```
+	
+	• Solution 5 – group_by function of dplyr package is used to group the data based on                   activity_name and subject. Then summarize_all function is used to find of mean of data in            all the columns. This data set is then written in a file named data_tidy.txt with row.names           = False propertyThe purpose of the document is for describing run_analysis.R
+```{r}
+# join.df which is the final data frame is used to produce independent tidy data frame
+# which is then written in a file named data_tidy.txt
+tidy.df <- join.df %>% group_by(activity_name = join.df$activity_name, subject = join.df$subject) %>% summarise_all(funs(mean))
+write.table(x = tidy.df, file = "data_tidy.txt", row.names = FALSE)
+print(str(tidy.df))
+```
